@@ -1,23 +1,24 @@
 import os
-from twilio.rest import Client
+import smtplib
+from email.mime.text import MIMEText
 from classes import CLASSES
 
-account_sid = os.environ["TWILIO_ACCOUNT_SID"]
-auth_token = os.environ["TWILIO_AUTH_TOKEN"]
-from_number = os.environ["TWILIO_FROM_NUMBER"]
-to_number = os.environ["MY_PHONE_NUMBER"]
+gmail_address = os.environ["GMAIL_ADDRESS"]
+gmail_app_password = os.environ["GMAIL_APP_PASSWORD"]
+to_email = os.environ["TO_EMAIL"]
 
-
-# GitHub tells us which cron schedule triggered this run
 triggered_cron = os.environ.get("TRIGGERED_CRON") or "45 23 * * 0"
 info = CLASSES[triggered_cron]
 
+body = f"Booking opens now for {info['name']} ({info['class_day']} {info['class_time']})! 🏋️"
 
-body = info['name']
+msg = MIMEText(body)
+msg["Subject"] = "FFC Class Reminder"
+msg["From"] = gmail_address
+msg["To"] = to_email
 
-client = Client(account_sid, auth_token)
-message = client.messages.create(body=body, from_=from_number, to=to_number)
+with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+    server.login(gmail_address, gmail_app_password)
+    server.sendmail(gmail_address, [to_email], msg.as_string())
 
 print(f"Sent: {body}")
-print(f"SID: {message.sid}")
-
