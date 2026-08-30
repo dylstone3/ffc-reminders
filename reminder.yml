@@ -1,0 +1,26 @@
+name: FFC Class Reminder
+
+on:
+  schedule:
+    - cron: '45 23 * * 0'
+    - cron: '45 22 * * 2'
+    - cron: '30 22 * * 3'
+    - cron: '45 15 * * 4'
+    - cron: '0 13 * * 5'
+
+jobs:
+  send-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install twilio
+      - run: python remind.py
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+          MY_PHONE_NUMBER: ${{ secrets.MY_PHONE_NUMBER }}
+          TRIGGERED_CRON: ${{ github.event.schedule }}
