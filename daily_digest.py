@@ -30,7 +30,7 @@ def find_header_row(values, header_name="Task"):
 
 
 def get_unfinished_tasks(sheet_name):
-    """Return task names from a Daily/Weekly-style sheet where Done isn't checked."""
+    """Return (task, notes) tuples from a Daily/Weekly-style sheet where Done isn't checked."""
     ws = spreadsheet.worksheet(sheet_name)
     values = ws.get_all_values()
     header_idx = find_header_row(values)
@@ -43,13 +43,14 @@ def get_unfinished_tasks(sheet_name):
             continue
         task = row[0].strip()
         done = row[1].strip().upper() if len(row) > 1 else ""
+        notes = row[2].strip() if len(row) > 2 else ""
         if done != "TRUE":
-            tasks.append(task)
+            tasks.append((task, notes))
     return tasks
 
 
 def get_due_and_upcoming_recurring():
-    """Return (due_tasks, upcoming_tasks) from the Recurring sheet."""
+    """Return (due_tasks, upcoming_tasks) as (task, notes) tuples from the Recurring sheet."""
     ws = spreadsheet.worksheet("Recurring")
     values = ws.get_all_values()
     header_idx = find_header_row(values)
@@ -65,9 +66,10 @@ def get_due_and_upcoming_recurring():
         task = row[0].strip()
         next_due_str = row[3].strip() if len(row) > 3 else ""
         status = row[4].strip() if len(row) > 4 else ""
+        notes = row[5].strip() if len(row) > 5 else ""
 
         if status.lower() == "due":
-            due.append(task)
+            due.append((task, notes))
         elif next_due_str:
             try:
                 next_due = datetime.strptime(next_due_str, "%m/%d/%Y").date()
@@ -75,10 +77,18 @@ def get_due_and_upcoming_recurring():
                 continue
             days_away = (next_due - today).days
             if 0 <= days_away <= UPCOMING_DAYS:
-                upcoming.append(f"{task} (due {next_due.strftime('%a %-m/%-d')})")
+                label = f"{task} (due {next_due.strftime('%a %-m/%-d')})"
+                upcoming.append((label, notes))
 
     return due, upcoming
 
+def format_task_lines(tasks):
+    lines = []
+    for task, notes in tasks:
+        lines.append(f"- {task}")
+        if notes:
+            lines.append(f"    note: {notes}")
+    return lines
 
 def build_email_body():
     daily = get_unfinished_tasks("Daily")
@@ -88,19 +98,19 @@ def build_email_body():
     lines = []
 
     lines.append("DAILY TASKS")
-    lines.extend(f"- {t}" for t in daily) if daily else lines.append("(none outstanding)")
+    lines.extend(format_task_lines(daily)) if daily else lines.append("(none outstanding)")
 
     lines.append("")
     lines.append("WEEKLY TASKS")
-    lines.extend(f"- {t}" for t in weekly) if weekly else lines.append("(none outstanding)")
+    lines.extend(format_task_lines(weekly)) if weekly else lines.append("(none outstanding)")
 
     lines.append("")
     lines.append("RECURRING TASKS DUE NOW")
-    lines.extend(f"- {t}" for t in due) if due else lines.append("(none due)")
+    lines.extend(format_task_lines(due)) if due else lines.append("(none due)")
 
     lines.append("")
     lines.append(f"UPCOMING (next {UPCOMING_DAYS} days)")
-    lines.extend(f"- {t}" for t in upcoming) if upcoming else lines.append("(nothing upcoming)")
+    lines.extend(format_task_lines(upcoming)) if upcoming else lines.append("(nothing upcoming)")
 
     lines.append("")
     lines.append("Spreadsheet link: https://docs.google.com/spreadsheets/d/1slp2D9KmRG810TrTFhP3yrth83IXY7yUaUrgsi8ewyQ/edit?usp=sharing")
