@@ -50,35 +50,27 @@ def get_unfinished_tasks(sheet_name):
 
 
 def get_due_and_upcoming_recurring():
-    """Return (due_tasks, upcoming_tasks) as (task, notes) tuples from the Recurring sheet."""
+    """Return (due_tasks, upcoming_tasks) as (task, notes) tuples from the Recurring sheet,
+    using the sheet's own Status column."""
     ws = spreadsheet.worksheet("Recurring")
     values = ws.get_all_values()
     header_idx = find_header_row(values)
     if header_idx is None:
         return [], []
 
-    today = datetime.now().date()
     due, upcoming = [], []
 
     for row in values[header_idx + 1:]:
         if not row or not row[0].strip():
             continue
         task = row[0].strip()
-        next_due_str = row[3].strip() if len(row) > 3 else ""
         status = row[4].strip() if len(row) > 4 else ""
         notes = row[5].strip() if len(row) > 5 else ""
 
         if status.lower() == "due":
             due.append((task, notes))
-        elif next_due_str:
-            try:
-                next_due = datetime.strptime(next_due_str, "%m/%d/%Y").date()
-            except ValueError:
-                continue
-            days_away = (next_due - today).days
-            if 0 <= days_away <= UPCOMING_DAYS:
-                label = f"{task} (due {next_due.strftime('%a %-m/%-d')})"
-                upcoming.append((label, notes))
+        elif status.lower() == "upcoming":
+            upcoming.append((task, notes))
 
     return due, upcoming
 
