@@ -1,6 +1,7 @@
 name: FFC Class Reminder
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '45 23 * * 0'
     - cron: '45 22 * * 2'
