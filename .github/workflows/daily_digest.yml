@@ -3,7 +3,7 @@ name: Daily Task Digest
 on:
   workflow_dispatch:
   schedule:
-    - cron: '12 19 * * *'  # 7:00 AM Chicago time (CDT = UTC-5)
+    - cron: '12 8 * * *'  # 3:12 AM Chicago time (CDT = UTC-5)
 
 jobs:
   send-digest:
