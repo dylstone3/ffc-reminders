@@ -9,7 +9,7 @@ to_number = os.environ["MY_PHONE_NUMBER"]
 
 
 # GitHub tells us which cron schedule triggered this run
-triggered_cron = os.environ["TRIGGERED_CRON"]
+triggered_cron = os.environ.get("TRIGGERED_CRON") or "45 23 * * 0"
 info = CLASSES[triggered_cron]
 
 
