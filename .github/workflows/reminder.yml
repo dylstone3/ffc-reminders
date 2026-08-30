@@ -3,11 +3,11 @@ name: FFC Class Reminder
 on:
   workflow_dispatch:
   schedule:
-    - cron: '45 23 * * 0'
-    - cron: '45 22 * * 2'
-    - cron: '30 22 * * 3'
-    - cron: '45 15 * * 4'
-    - cron: '0 13 * * 5'
+    - cron: '43 23 * * 0'
+    - cron: '43 22 * * 2'
+    - cron: '28 22 * * 3'
+    - cron: '43 15 * * 4'
+    - cron: '58 12 * * 5'
 
 jobs:
   send-reminder:
