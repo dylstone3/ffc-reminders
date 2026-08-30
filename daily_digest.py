@@ -17,6 +17,7 @@ creds = Credentials.from_service_account_info(service_account_info, scopes=scope
 gc = gspread.authorize(creds)
 
 sheet_id = os.environ["SHEET_ID"]
+print(f"DEBUG - Sheet ID length: {len(sheet_id)}, repr: {repr(sheet_id)}")
 spreadsheet = gc.open_by_key(sheet_id)
 
 
