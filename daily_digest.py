@@ -79,7 +79,7 @@ def format_task_lines(tasks):
     for task, notes in tasks:
         lines.append(f"- {task}")
         if notes:
-            lines.append(f"    note: {notes}")
+            lines.append(f"            note: {notes}")
     return lines
 
 def build_email_body():
