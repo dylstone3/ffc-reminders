@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install twilio
-      - run: python remind.py
+      - run: python reminder.py
         env:
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
