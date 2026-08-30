@@ -8,7 +8,7 @@ gmail_app_password = os.environ["GMAIL_APP_PASSWORD"]
 to_email = os.environ["TO_EMAIL"]
 
 class_key = os.environ["CLASS_KEY"]
-info = CLASSES[triggered_cron]
+info = CLASSES[class_key]
 
 body = f"Booking opens now for {info['name']} ({info['class_day']} {info['class_time']})! 🏋️"
 
