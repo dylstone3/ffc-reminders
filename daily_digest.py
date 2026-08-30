@@ -102,6 +102,9 @@ def build_email_body():
     lines.append(f"UPCOMING (next {UPCOMING_DAYS} days)")
     lines.extend(f"- {t}" for t in upcoming) if upcoming else lines.append("(nothing upcoming)")
 
+    lines.append("")
+    lines.append("Spreadsheet link: https://docs.google.com/spreadsheets/d/1slp2D9KmRG810TrTFhP3yrth83IXY7yUaUrgsi8ewyQ/edit?usp=sharing")
+
     return "\n".join(lines)
 
 
