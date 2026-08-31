@@ -1,28 +1,41 @@
 import os
 import json
+import re
 from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 import gspread
 from google.oauth2.service_account import Credentials
 
-# How many days ahead counts as "upcoming" for recurring tasks not yet due
 UPCOMING_DAYS = 2
 
-# --- Connect to Google Sheets ---
 scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
 creds = Credentials.from_service_account_info(service_account_info, scopes=scopes)
 gc = gspread.authorize(creds)
 
 sheet_id = os.environ["SHEET_ID"]
-print(f"DEBUG - Sheet ID length: {len(sheet_id)}, repr: {repr(sheet_id)}")
 spreadsheet = gc.open_by_key(sheet_id)
+
+URL_PATTERN = re.compile(r'(https?://\S+)')
+
+
+def linkify(text):
+    """Turn any raw URL in a string into a clickable HTML link."""
+    if not text:
+        return ""
+
+    def replace(match):
+        url = match.group(1)
+        label = "View sheet" if "docs.google.com/spreadsheets" in url else "Link"
+        return f'<a href="{url}" style="color:#4A7CFE;text-decoration:none;">{label}</a>'
+
+    return URL_PATTERN.sub(replace, text)
 
 
 def find_header_row(values, header_name="Task"):
-    """Find the row index (0-based) where the real column headers live."""
     for i, row in enumerate(values):
         if row and row[0].strip() == header_name:
             return i
@@ -30,7 +43,6 @@ def find_header_row(values, header_name="Task"):
 
 
 def get_unfinished_tasks(sheet_name):
-    """Return (task, notes) tuples from a Daily/Weekly-style sheet where Done isn't checked."""
     ws = spreadsheet.worksheet(sheet_name)
     values = ws.get_all_values()
     header_idx = find_header_row(values)
@@ -50,8 +62,6 @@ def get_unfinished_tasks(sheet_name):
 
 
 def get_due_and_upcoming_recurring():
-    """Return (due_tasks, upcoming_tasks) as (task, notes) tuples from the Recurring sheet,
-    using the sheet's own Status column."""
     ws = spreadsheet.worksheet("Recurring")
     values = ws.get_all_values()
     header_idx = find_header_row(values)
@@ -59,7 +69,6 @@ def get_due_and_upcoming_recurring():
         return [], []
 
     due, upcoming = [], []
-
     for row in values[header_idx + 1:]:
         if not row or not row[0].strip():
             continue
@@ -74,51 +83,78 @@ def get_due_and_upcoming_recurring():
 
     return due, upcoming
 
-def format_task_lines(tasks):
-    lines = []
-    for task, notes in tasks:
-        lines.append(f"- {task}")
-        if notes:
-            lines.append(f"            note: {notes}")
-    return lines
 
-def build_email_body():
+def render_section(title, tasks, accent_color, empty_message):
+    """Build one styled HTML block for a section (Daily, Weekly, etc)."""
+    html = f'''
+    <div style="margin-bottom:28px;">
+      <div style="font-size:15px;font-weight:700;color:{accent_color};
+                  text-transform:uppercase;letter-spacing:0.5px;
+                  border-bottom:2px solid {accent_color};padding-bottom:6px;margin-bottom:12px;">
+        {title}
+      </div>
+    '''
+    if not tasks:
+        html += f'<div style="color:#999;font-style:italic;padding:4px 0;">{empty_message}</div>'
+    else:
+        for task, notes in tasks:
+            html += f'''
+            <div style="padding:8px 0;border-bottom:1px solid #f0f0f0;">
+              <div style="font-size:14px;color:#222;">{task}</div>
+            '''
+            if notes:
+                html += f'<div style="font-size:12px;color:#777;margin-top:2px;">{linkify(notes)}</div>'
+            html += '</div>'
+    html += '</div>'
+    return html
+
+
+def build_email_html():
     daily = get_unfinished_tasks("Daily")
     weekly = get_unfinished_tasks("Weekly")
     due, upcoming = get_due_and_upcoming_recurring()
+    today_str = datetime.now().strftime("%A, %B %-d")
 
-    lines = []
+    html = f'''
+    <html>
+    <body style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+                 background-color:#f7f7f8;padding:24px;margin:0;">
+      <div style="max-width:520px;margin:0 auto;background:#ffffff;
+                  border-radius:12px;padding:28px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <div style="font-size:20px;font-weight:700;color:#111;margin-bottom:4px;">
+          Daily Digest
+        </div>
+        <div style="font-size:13px;color:#999;margin-bottom:24px;">
+          {today_str}
+        </div>
 
-    lines.append("DAILY TASKS")
-    lines.extend(format_task_lines(daily)) if daily else lines.append("(none outstanding)")
+        {render_section("Daily Tasks", daily, "#4A7CFE", "Nothing outstanding — nice work.")}
+        {render_section("Weekly Tasks", weekly, "#8A4AFE", "Nothing outstanding.")}
+        {render_section("Due Now", due, "#FE4A4A", "Nothing due today.")}
+        {render_section(f"Upcoming ({UPCOMING_DAYS} days)", upcoming, "#FEA34A", "Nothing upcoming.")}
 
-    lines.append("")
-    lines.append("WEEKLY TASKS")
-    lines.extend(format_task_lines(weekly)) if weekly else lines.append("(none outstanding)")
-
-    lines.append("")
-    lines.append("RECURRING TASKS DUE NOW")
-    lines.extend(format_task_lines(due)) if due else lines.append("(none due)")
-
-    lines.append("")
-    lines.append(f"UPCOMING (next {UPCOMING_DAYS} days)")
-    lines.extend(format_task_lines(upcoming)) if upcoming else lines.append("(nothing upcoming)")
-
-    lines.append("")
-    lines.append("Spreadsheet link: https://docs.google.com/spreadsheets/d/1slp2D9KmRG810TrTFhP3yrth83IXY7yUaUrgsi8ewyQ/edit?usp=sharing")
-
-    return "\n".join(lines)
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;
+                    font-size:12px;color:#aaa;">
+          <a href="https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
+             style="color:#4A7CFE;text-decoration:none;">Open full spreadsheet →</a>
+        </div>
+      </div>
+    </body>
+    </html>
+    '''
+    return html
 
 
-def send_email(body):
+def send_email(html_body):
     gmail_address = os.environ["GMAIL_ADDRESS"]
     gmail_app_password = os.environ["GMAIL_APP_PASSWORD"]
     to_email = os.environ["TO_EMAIL"]
 
-    msg = MIMEText(body)
-    msg["Subject"] = f"Daily Task Digest - {datetime.now().strftime('%A %m/%d')}"
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"Daily Task Digest — {datetime.now().strftime('%A %m/%d')}"
     msg["From"] = gmail_address
     msg["To"] = to_email
+    msg.attach(MIMEText(html_body, "html"))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(gmail_address, gmail_app_password)
@@ -126,6 +162,5 @@ def send_email(body):
 
 
 if __name__ == "__main__":
-    body = build_email_body()
-    print(body)  # so it also shows up in the GitHub Actions log for debugging
-    send_email(body)
+    html_body = build_email_html()
+    send_email(html_body)
